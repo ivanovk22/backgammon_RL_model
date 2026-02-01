@@ -8,7 +8,6 @@ import numpy as np
 from gym_backgammon.envs.backgammon import WHITE, BLACK, COLORS, TOKEN
 
 
-# 1. Re-define the Architecture so PyTorch can load the weights
 class BackgammonNet(nn.Module):
     def __init__(self):
         super(BackgammonNet, self).__init__()
@@ -23,7 +22,6 @@ class BackgammonNet(nn.Module):
         return self.net(x)
 
 
-# 2. Create the Trained Agent
 class TrainedAgent:
     def __init__(self, color, model_path):
         self.color = color
@@ -73,16 +71,42 @@ class TrainedAgent:
 
         return best_action
 
+class HumanAgent:
+    def __init__(self, color):
+        self.color = color
+        self.name = f"HumanAgent({self.color})"
 
-# 3. Main Gameplay Loop
+    def roll_dice(self):
+        return (-random.randint(1, 6), -random.randint(1, 6)) if self.color == WHITE else (
+            random.randint(1, 6), random.randint(1, 6))
+
+    def choose_action(self, actions):
+        if not actions:
+            print("No legal moves. Passing turn.")
+            return None
+
+        print("\nAvailable actions:")
+        for i, action in enumerate(actions):
+            print(f"[{i}] {action}")
+
+        while True:
+            try:
+                idx = int(input("Choose action: "))
+                if 0 <= idx < len(actions):
+                    return list(actions)[idx]
+            except ValueError:
+                pass
+            print("Invalid input. Try again.")
+
+
+
 def make_plays():
-    env = gym.make('gym_backgammon:backgammon-v0', render_mode='rgb_array')
+    env = gym.make('gym_backgammon:backgammon-v0', render_mode='rgb_array') #render_mode='human' for the other one
     wins = {WHITE: 0, BLACK: 0}
 
-    # You can mix and match here: Trained vs Trained or Trained vs Random
     agents = {
-        WHITE: TrainedAgent(WHITE, "backgammon_model3.pth"),
-        BLACK: TrainedAgent(BLACK, "backgammon_model3.pth")
+        WHITE: HumanAgent(WHITE),
+        BLACK: TrainedAgent(BLACK, "models/backgammon_model_MC_ep_500000.pth")
     }
 
     observation, info = env.reset()
@@ -107,7 +131,11 @@ def make_plays():
             "Current player={} ({} - {}) | Roll={}".format(agent.color, TOKEN[agent.color], COLORS[agent.color], roll))
 
         actions = env.unwrapped.get_valid_actions(roll)
-        action = agent.choose_best_action(actions, env)
+
+        if isinstance(agent, TrainedAgent):
+            action = agent.choose_best_action(actions, env)
+        else:
+            action = agent.choose_action(actions)
 
         observation_next, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
