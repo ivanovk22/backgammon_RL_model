@@ -8,8 +8,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from gym_backgammon.envs.backgammon import WHITE, BLACK
 
+"""
+This file is used for evaluating the models.
+Play 5000 games between each trained model + one random model
+"""
 
-# ---------------- NETWORK ----------------
 class BackgammonNet(nn.Module):
     def __init__(self):
         super().__init__()
@@ -24,7 +27,6 @@ class BackgammonNet(nn.Module):
         return self.net(x)
 
 
-# ---------------- FEATURE SIMULATION ----------------
 def get_features_after_action(env, player, action):
     b_copy = env.unwrapped.game.board.copy()
     bar_copy = env.unwrapped.game.bar.copy()
@@ -39,7 +41,6 @@ def get_features_after_action(env, player, action):
     return features
 
 
-# ---------------- PLAY ONE GAME ----------------
 def play_game(modelA, modelB, modelA_white):
     env = gym.make('gym_backgammon:backgammon-v0')
     obs, info = env.reset()
@@ -59,19 +60,25 @@ def play_game(modelA, modelB, modelA_white):
             action = None
         else:
             model = player_to_model[current_agent]
-            best_action = None
-            best_val = -1.0 if current_agent == WHITE else 2.0
 
-            for act in actions:
-                feat = get_features_after_action(env, current_agent, act)
-                with torch.no_grad():
-                    val = model(torch.tensor(feat).float()).item()
+            if model == "random":
+                action = random.choice(list(actions))
 
-                if (current_agent == WHITE and val > best_val) or \
-                   (current_agent == BLACK and val < best_val):
-                    best_val, best_action = val, act
 
-            action = best_action
+            else:
+                best_action = None
+                best_val = -1.0 if current_agent == WHITE else 2.0
+
+                for act in actions:
+                    feat = get_features_after_action(env, current_agent, act)
+                    with torch.no_grad():
+                        val = model(torch.tensor(feat).float()).item()
+
+                    if (current_agent == WHITE and val > best_val) or \
+                            (current_agent == BLACK and val < best_val):
+                        best_val, best_action = val, act
+
+                action = best_action
 
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
@@ -83,19 +90,23 @@ def play_game(modelA, modelB, modelA_white):
 
     winner = info["winner"]
     return (winner == WHITE and modelA_white) or (winner == BLACK and not modelA_white)
-    # Returns True if modelA won
+    # Returns true if modelA won
 
 
-# ---------------- TOURNAMENT ----------------
 def evaluate_models(model_paths, games_per_pair=2000):
     models = []
     names = []
 
     for name, path in model_paths.items():
-        m = BackgammonNet()
-        m.load_state_dict(torch.load(path))
-        m.eval()
-        models.append(m)
+        if path == "random":
+            models.append("random")
+
+        else:
+            m = BackgammonNet()
+            m.load_state_dict(torch.load(path))
+            m.eval()
+            models.append(m)
+
         names.append(name)
 
     n = len(models)
@@ -128,14 +139,12 @@ def evaluate_models(model_paths, games_per_pair=2000):
             results[i, j] = win_rate
             results[j, i] = 1 - win_rate
 
-    # ---------------- HEATMAP ----------------
     plt.figure(figsize=(8, 6))
     sns.heatmap(results, annot=True, xticklabels=names, yticklabels=names,
                 cmap="coolwarm", vmin=0, vmax=1)
     plt.title("Pairwise Win Rate Matrix")
     plt.show()
 
-    # ---------------- OVERALL STRENGTH ----------------
     strength = results.sum(axis=1) / (n - 1)
 
     plt.figure(figsize=(6, 4))
@@ -150,14 +159,14 @@ def evaluate_models(model_paths, games_per_pair=2000):
         print(f"{name}: {s:.3f}")
 
 
-# ---------------- RUN ----------------
 if __name__ == "__main__":
     model_paths = {
         "TD(0)": "models/backgammon_model_1_step_ep_500000.pth",
         "3-step TD": "models/backgammon_model_3_step_ep_500000.pth",
         "5-step TD": "models/backgammon_model_5_step_ep_500000.pth",
         "MC": "models/backgammon_model_MC_ep_500000.pth",
-        "TD(lambda)": "models/backgammon_TD_lmbda_ep_500000.pth"
+        "TD(lambda)": "models/backgammon_TD_lmbda_ep_500000.pth",
+        "Random": "random"  # random heuristic
     }
 
-    evaluate_models(model_paths, games_per_pair=2000)
+    evaluate_models(model_paths, games_per_pair=5000)

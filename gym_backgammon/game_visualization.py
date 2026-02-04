@@ -7,6 +7,9 @@ import random
 import numpy as np
 from gym_backgammon.envs.backgammon import WHITE, BLACK, COLORS, TOKEN
 
+"""
+This file is used for visualizing the game + playing against a trained model
+"""
 
 class BackgammonNet(nn.Module):
     def __init__(self):
@@ -106,7 +109,7 @@ def make_plays():
 
     agents = {
         WHITE: HumanAgent(WHITE),
-        BLACK: TrainedAgent(BLACK, "models/backgammon_model_MC_ep_500000.pth")
+        BLACK: TrainedAgent(BLACK, "models/backgammon_TD_lmbda_ep_500000.pth")
     }
 
     observation, info = env.reset()

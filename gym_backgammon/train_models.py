@@ -7,6 +7,10 @@ import random
 from gym_backgammon.envs.backgammon import WHITE, BLACK
 from collections import deque
 
+"""
+This file is used for training the models
+"""
+
 
 class BackgammonNet(nn.Module):
     def __init__(self):
